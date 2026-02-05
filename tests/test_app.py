@@ -89,6 +89,21 @@ class TestSignup:
         assert response.status_code == 400
         assert response.json()["detail"] == "Student already signed up"
 
+    def test_signup_activity_full(self, client):
+        """Test that signup returns error when activity is at max capacity"""
+        # Chess Club has max_participants of 12
+        # It already has 2 participants, so we need to add 10 more to fill it
+        for i in range(10):
+            client.post(f"/activities/Chess Club/signup?email=student{i}@mergington.edu")
+        
+        # Now the activity should be full (12 participants)
+        # Try to add one more participant
+        response = client.post(
+            "/activities/Chess Club/signup?email=overflow@mergington.edu"
+        )
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Activity is full"
+
 
 class TestUnregister:
     """Tests for DELETE /activities/{activity_name}/unregister endpoint"""
