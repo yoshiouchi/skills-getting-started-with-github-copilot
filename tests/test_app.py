@@ -64,7 +64,8 @@ class TestSignup:
     def test_signup_adds_participant(self, client):
         """Test that signup adds participant to the activity"""
         email = "teststudent@mergington.edu"
-        client.post(f"/activities/Art Club/signup?email={email}")
+        response = client.post(f"/activities/Art Club/signup?email={email}")
+        assert response.status_code == 200
         
         response = client.get("/activities")
         data = response.json()
@@ -81,13 +82,34 @@ class TestSignup:
     def test_signup_already_registered(self, client):
         """Test that duplicate signup returns 400"""
         # First signup
-        client.post("/activities/Chess Club/signup?email=duplicate@mergington.edu")
+        response = client.post("/activities/Chess Club/signup?email=duplicate@mergington.edu")
+        assert response.status_code == 200
         # Second signup with same email
         response = client.post(
             "/activities/Chess Club/signup?email=duplicate@mergington.edu"
         )
         assert response.status_code == 400
         assert response.json()["detail"] == "Student already signed up"
+
+    def test_signup_activity_full(self, client):
+        """Test that signup returns error when activity is full"""
+        # Fill up Chess Club (max 12 participants)
+        # First unregister existing participants
+        existing_response = client.get("/activities")
+        existing_participants = existing_response.json()["Chess Club"]["participants"].copy()
+        
+        for email in existing_participants:
+            client.delete(f"/activities/Chess Club/unregister?email={email}")
+        
+        # Add 12 participants to fill the activity
+        for i in range(12):
+            response = client.post(f"/activities/Chess Club/signup?email=student{i}@mergington.edu")
+            assert response.status_code == 200
+        
+        # Try to add 13th participant
+        response = client.post("/activities/Chess Club/signup?email=student13@mergington.edu")
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Activity is full"
 
 
 class TestUnregister:
@@ -105,7 +127,8 @@ class TestUnregister:
     def test_unregister_removes_participant(self, client):
         """Test that unregister removes participant from the activity"""
         email = "noah@mergington.edu"
-        client.delete(f"/activities/Soccer Team/unregister?email={email}")
+        response = client.delete(f"/activities/Soccer Team/unregister?email={email}")
+        assert response.status_code == 200
         
         response = client.get("/activities")
         data = response.json()
@@ -126,6 +149,18 @@ class TestUnregister:
         )
         assert response.status_code == 400
         assert response.json()["detail"] == "Student is not signed up for this activity"
+
+    def test_unregister_empty_email(self, client):
+        """Test unregister with empty email returns 400"""
+        response = client.delete("/activities/Soccer Team/unregister?email=")
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Email parameter is required"
+
+    def test_unregister_invalid_email_format(self, client):
+        """Test unregister with invalid email format returns 400"""
+        response = client.delete("/activities/Soccer Team/unregister?email=invalidemail")
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Invalid email format"
 
 
 class TestRootRedirect:
