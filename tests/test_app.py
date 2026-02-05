@@ -94,8 +94,12 @@ class TestSignup:
     def test_signup_activity_full(self, client):
         """Test that signup returns error when activity is full"""
         # Fill up Chess Club (max 12 participants)
-        # First remove existing participants to have a clean slate
-        activities["Chess Club"]["participants"] = []
+        # First unregister existing participants
+        existing_response = client.get("/activities")
+        existing_participants = existing_response.json()["Chess Club"]["participants"].copy()
+        
+        for email in existing_participants:
+            client.delete(f"/activities/Chess Club/unregister?email={email}")
         
         # Add 12 participants to fill the activity
         for i in range(12):
